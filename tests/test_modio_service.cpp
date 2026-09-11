@@ -73,6 +73,32 @@ TEST_CASE("modio service: queries return empty before ready") {
   CHECK(service.subscriptions().empty());
   CHECK(service.installations(true).empty());
   CHECK_FALSE(service.mod_management_busy());
+  CHECK_FALSE(service.installed_mod_path(Modio::ModID(1)).has_value());
+  CHECK_FALSE(service.is_subscribed(Modio::ModID(1)));
+  CHECK_FALSE(service.is_installed(Modio::ModID(1)));
+}
+
+TEST_CASE("modio service: browsing calls fail synchronously before ready") {
+  Service service;
+  bool called = false;
+  service.search_mods("", 0, 20,
+                      [&](const Modio::ErrorCode ec,
+                          const Modio::Optional<Modio::ModInfoList> list) {
+                        called = true;
+                        CHECK(ec);
+                        CHECK_FALSE(list.has_value());
+                      });
+  CHECK(called);
+
+  called = false;
+  service.get_mod_info(
+      Modio::ModID(1), [&](const Modio::ErrorCode ec,
+                           const Modio::Optional<Modio::ModInfo> info) {
+        called = true;
+        CHECK(ec);
+        CHECK_FALSE(info.has_value());
+      });
+  CHECK(called);
 }
 
 TEST_CASE("modio service: a callback-less call is safe") {

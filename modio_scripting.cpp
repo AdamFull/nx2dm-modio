@@ -82,6 +82,18 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
+  host.expose_as("modio_is_subscribed", [&ctx](const f64 mod_id) {
+    const Service *const service = service_of(ctx);
+    return service != nullptr && service->is_subscribed(Modio::ModID(
+                                     nx::cast<i64>(mod_id)));
+  });
+
+  host.expose_as("modio_is_installed", [&ctx](const f64 mod_id) {
+    const Service *const service = service_of(ctx);
+    return service != nullptr && service->is_installed(Modio::ModID(
+                                     nx::cast<i64>(mod_id)));
+  });
+
   host.expose_as("modio_subscribed_count", [&ctx]() {
     const Service *const service = service_of(ctx);
     return service == nullptr

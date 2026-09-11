@@ -69,6 +69,25 @@ public:
                    std::function<void(Modio::ErrorCode)> on_done = {});
   void fetch_external_updates(std::function<void(Modio::ErrorCode)> on_done = {});
 
+  /// name_contains empty means "no name filter". Results are paginated;
+  /// start_index/count follow Modio::FilterParams::IndexedResults.
+  void search_mods(
+      nx::string_view name_contains, usize start_index, usize count,
+      std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfoList>)>
+          on_done);
+  void get_mod_info(
+      Modio::ModID id,
+      std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfo>)>
+          on_done);
+
+  /// The mod's local install directory, once QueryUserInstallations reports
+  /// it present - i.e. the path a game would pass to Engine::mount_overlay.
+  /// Empty before ready() or if the mod is not currently installed.
+  [[nodiscard]] Modio::Optional<std::string>
+  installed_mod_path(Modio::ModID id) const;
+  [[nodiscard]] bool is_subscribed(Modio::ModID id) const;
+  [[nodiscard]] bool is_installed(Modio::ModID id) const;
+
   /// Convenience mirror of whichever of the above ran most recently, for a
   /// caller (the Luau surface) that polls instead of holding a callback.
   /// Callers that already have their own callback should just use its

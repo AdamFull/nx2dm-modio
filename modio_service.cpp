@@ -209,4 +209,58 @@ Service::installations(const bool include_outdated) const {
                  : std::map<Modio::ModID, Modio::ModCollectionEntry>{};
 }
 
+void Service::search_mods(
+    const nx::string_view name_contains, const usize start_index,
+    const usize count,
+    std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfoList>)>
+        on_done) {
+  if (!ready()) {
+    on_done(not_ready_error(), {});
+    return;
+  }
+  Modio::FilterParams filter;
+  filter.IndexedResults(start_index, count);
+  if (!name_contains.empty())
+    filter.NameContains(std::string(name_contains));
+  Modio::ListAllModsAsync(filter, std::move(on_done));
+}
+
+void Service::get_mod_info(
+    const Modio::ModID id,
+    std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfo>)>
+        on_done) {
+  if (!ready()) {
+    on_done(not_ready_error(), {});
+    return;
+  }
+  Modio::GetModInfoAsync(id, std::move(on_done));
+}
+
+Modio::Optional<std::string> Service::installed_mod_path(const Modio::ModID id) const {
+  if (!ready())
+    return {};
+  const std::map<Modio::ModID, Modio::ModCollectionEntry> installed =
+      Modio::QueryUserInstallations(true);
+  const auto it = installed.find(id);
+  if (it == installed.end())
+    return {};
+  return it->second.GetPath();
+}
+
+bool Service::is_subscribed(const Modio::ModID id) const {
+  if (!ready())
+    return false;
+  const std::map<Modio::ModID, Modio::ModCollectionEntry> subscribed =
+      Modio::QueryUserSubscriptions();
+  return subscribed.find(id) != subscribed.end();
+}
+
+bool Service::is_installed(const Modio::ModID id) const {
+  if (!ready())
+    return false;
+  const std::map<Modio::ModID, Modio::ModCollectionEntry> installed =
+      Modio::QueryUserInstallations(true);
+  return installed.find(id) != installed.end();
+}
+
 }

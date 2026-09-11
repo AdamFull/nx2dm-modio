@@ -37,6 +37,14 @@
       "signature": "(number)->(boolean)"
     },
     {
+      "name": "modio_is_subscribed",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_is_installed",
+      "signature": "(number)->(boolean)"
+    },
+    {
       "name": "modio_subscribed_count",
       "signature": "()->(number)"
     },
