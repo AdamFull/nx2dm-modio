@@ -1,0 +1,48 @@
+{
+  "services": [
+    {
+      "name": "modio_configure",
+      "signature": "(number,string,boolean)->(boolean)"
+    },
+    {
+      "name": "modio_ready",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_authenticated",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_busy",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_request_email_code",
+      "signature": "(string)->(boolean)"
+    },
+    {
+      "name": "modio_authenticate_email_code",
+      "signature": "(string)->(boolean)"
+    },
+    {
+      "name": "modio_enable_mod_management",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_subscribe",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_unsubscribe",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_subscribed_count",
+      "signature": "()->(number)"
+    },
+    {
+      "name": "modio_installed_count",
+      "signature": "()->(number)"
+    }
+  ]
+}
