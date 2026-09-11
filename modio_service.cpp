@@ -1,15 +1,13 @@
 #include "modio/modio_service.h"
 
+#include "modio/modio_errors.h"
+
 #include "core/foundation/diagnostics/log.h"
 
 namespace nxm::modio {
 namespace {
 
 const nx::log::Category log_modio = nx::log::category("modio");
-
-[[nodiscard]] Modio::ErrorCode not_ready_error() noexcept {
-  return Modio::make_error_code(Modio::GenericError::SDKNotInitialized);
-}
 
 [[nodiscard]] nx::string_view event_name(
     const Modio::ModManagementEvent::EventType type) noexcept {
@@ -24,6 +22,24 @@ const nx::log::Category log_modio = nx::log::category("modio");
     return "uploaded";
   }
   return "unknown";
+}
+
+void forward_sdk_log(const Modio::LogLevel level, const std::string &message) {
+  switch (level) {
+  case Modio::LogLevel::Trace:
+  case Modio::LogLevel::Detailed:
+    nx::logd(log_modio, "{}", message);
+    break;
+  case Modio::LogLevel::Info:
+    nx::logi(log_modio, "{}", message);
+    break;
+  case Modio::LogLevel::Warning:
+    nx::logw(log_modio, "{}", message);
+    break;
+  case Modio::LogLevel::Error:
+    nx::loge(log_modio, "{}", message);
+    break;
+  }
 }
 
 }
@@ -42,6 +58,7 @@ void Service::initialize(const ServiceConfig &config) {
   }
   m_phase = Phase::Initializing;
   m_mod_management_enabled = false;
+  Modio::SetLogCallback(forward_sdk_log);
   const Modio::Environment environment = config.test_environment
                                              ? Modio::Environment::Test
                                              : Modio::Environment::Live;
@@ -121,6 +138,14 @@ void Service::disable_mod_management() {
 
 bool Service::mod_management_busy() const {
   return ready() && Modio::IsModManagementBusy();
+}
+
+bool Service::sdk_mod_management_enabled() const {
+  return ready() && Modio::IsModManagementEnabled();
+}
+
+void Service::set_log_level(const Modio::LogLevel level) {
+  Modio::SetLogLevel(level);
 }
 
 void Service::on_mod_management_event(const Modio::ModManagementEvent event) {

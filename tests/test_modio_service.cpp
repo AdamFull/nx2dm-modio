@@ -5,12 +5,18 @@
 using nxm::modio::Phase;
 using nxm::modio::Service;
 
+TEST_CASE("modio service: set_log_level works before any initialize") {
+  // Must not crash or require ready(); it's a direct SDK passthrough.
+  Service::set_log_level(Modio::LogLevel::Warning);
+}
+
 TEST_CASE("modio service: starts idle and unauthenticated") {
   Service service;
   CHECK(service.phase() == Phase::Idle);
   CHECK_FALSE(service.ready());
   CHECK_FALSE(service.authenticated());
   CHECK_FALSE(service.mod_management_enabled());
+  CHECK_FALSE(service.sdk_mod_management_enabled());
   CHECK_FALSE(service.last_operation_busy());
 }
 

@@ -56,6 +56,15 @@ public:
     return m_mod_management_enabled;
   }
   [[nodiscard]] bool mod_management_busy() const;
+  /// Cross-check against the SDK's own view, rather than the flag above
+  /// (which only reflects calls made through this Service). ready() must be
+  /// true; returns false otherwise.
+  [[nodiscard]] bool sdk_mod_management_enabled() const;
+
+  /// Adjusts the SDK's own log verbosity. Not gated on ready(); safe to call
+  /// before initialize(). initialize() always wires the SDK's log callback
+  /// into this module's "modio" log category regardless.
+  static void set_log_level(Modio::LogLevel level);
 
   void request_email_code(nx::string_view email,
                           std::function<void(Modio::ErrorCode)> on_done = {});

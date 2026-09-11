@@ -1,7 +1,16 @@
 
 add_executable(nx_modio_tests
         test_modio_service.cpp
-        ../modio_service.cpp)
+        test_modio_user.cpp
+        test_modio_advanced.cpp
+        test_modio_collections.cpp
+        ../modio_service.cpp
+        ../modio_user.cpp
+        ../modio_authoring.cpp
+        ../modio_monetization.cpp
+        ../modio_advanced.cpp
+        ../modio_collections.cpp
+        ../modio_server.cpp)
 
 target_include_directories(nx_modio_tests PRIVATE
         "${NX_ENGINE_ROOT}/engine" "${NX_ENGINE_ROOT}/modules")
