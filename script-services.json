@@ -51,6 +51,190 @@
     {
       "name": "modio_installed_count",
       "signature": "()->(number)"
+    },
+    {
+      "name": "modio_op_busy",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_op_error",
+      "signature": "()->(string)"
+    },
+    {
+      "name": "modio_op_result_id",
+      "signature": "()->(number)"
+    },
+    {
+      "name": "modio_op_result_text",
+      "signature": "()->(string)"
+    },
+    {
+      "name": "modio_set_language",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_get_language",
+      "signature": "()->(number)"
+    },
+    {
+      "name": "modio_clear_user_data",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_refresh_user_data",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_get_user_media",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_mute_user",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_unmute_user",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_follow_user",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_unfollow_user",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_new_mod_handle",
+      "signature": "()->(number)"
+    },
+    {
+      "name": "modio_submit_new_mod",
+      "signature": "(number,string,string,string)->(boolean)"
+    },
+    {
+      "name": "modio_submit_mod_changes",
+      "signature": "(number,string,string,string,string)->(boolean)"
+    },
+    {
+      "name": "modio_submit_new_mod_file",
+      "signature": "(number,string,string,string)->(boolean)"
+    },
+    {
+      "name": "modio_submit_new_mod_source_file",
+      "signature": "(number,string,string,string)->(boolean)"
+    },
+    {
+      "name": "modio_get_mod_logo",
+      "signature": "(number,number)->(boolean)"
+    },
+    {
+      "name": "modio_get_mod_gallery_image",
+      "signature": "(number,number,number)->(boolean)"
+    },
+    {
+      "name": "modio_get_mod_creator_avatar",
+      "signature": "(number,number)->(boolean)"
+    },
+    {
+      "name": "modio_add_or_update_mod_logo",
+      "signature": "(number,string)->(boolean)"
+    },
+    {
+      "name": "modio_submit_mod_rating",
+      "signature": "(number,number)->(boolean)"
+    },
+    {
+      "name": "modio_add_mod_dependency",
+      "signature": "(number,number)->(boolean)"
+    },
+    {
+      "name": "modio_delete_mod_dependency",
+      "signature": "(number,number)->(boolean)"
+    },
+    {
+      "name": "modio_archive_mod",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_has_validation_error",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_purchase_mod",
+      "signature": "(number,number)->(boolean)"
+    },
+    {
+      "name": "modio_fetch_wallet_balance",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_fetch_user_purchases",
+      "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_purchased_mods_count",
+      "signature": "()->(number)"
+    },
+    {
+      "name": "modio_force_uninstall_mod",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_prioritize_transfer_for_mod",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_current_update_mod_id",
+      "signature": "()->(number)"
+    },
+    {
+      "name": "modio_current_update_state",
+      "signature": "()->(number)"
+    },
+    {
+      "name": "modio_current_update_progress",
+      "signature": "()->(number)"
+    },
+    {
+      "name": "modio_storage_consumed_bytes",
+      "signature": "()->(number)"
+    },
+    {
+      "name": "modio_default_install_directory",
+      "signature": "(number)->(string)"
+    },
+    {
+      "name": "modio_get_mod_collection_info",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_subscribe_to_mod_collection",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_unsubscribe_from_mod_collection",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_follow_mod_collection",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_unfollow_mod_collection",
+      "signature": "(number)->(boolean)"
+    },
+    {
+      "name": "modio_submit_mod_collection_rating",
+      "signature": "(number,number)->(boolean)"
+    },
+    {
+      "name": "modio_get_mod_collection_logo",
+      "signature": "(number,number)->(boolean)"
+    },
+    {
+      "name": "modio_get_mod_collection_creator_avatar",
+      "signature": "(number,number)->(boolean)"
     }
   ]
 }
