@@ -1,0 +1,11 @@
+{
+  "name": "modio",
+  "displayName": "mod.io user-generated content",
+  "version": "1.0.0",
+  "author": "AdamFull",
+  "description": "Wraps the official mod.io C++ SDK as a module, exposing mod browsing, authoring, and monetization to C++ and Luau.",
+  "license": null,
+  "created": "2026-09-11",
+  "repository": null,
+  "revision": null
+}
