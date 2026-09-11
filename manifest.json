@@ -6,6 +6,12 @@
   "description": "Wraps the official mod.io C++ SDK as a module, exposing mod browsing, authoring, and monetization to C++ and Luau.",
   "license": null,
   "created": "2026-09-11",
-  "repository": null,
-  "revision": null
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AdamFull/nx2dm-modio.git"
+  },
+  "revision": {
+    "branch": "main",
+    "commit": "ebd5248bb3e6cf029e266f0870201faadaf4277f"
+  }
 }
