@@ -4,6 +4,7 @@ add_executable(nx_modio_tests
         test_modio_user.cpp
         test_modio_advanced.cpp
         test_modio_collections.cpp
+        test_modio_smoke.cpp
         ../modio_service.cpp
         ../modio_user.cpp
         ../modio_authoring.cpp
