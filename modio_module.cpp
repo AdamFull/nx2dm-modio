@@ -1,3 +1,4 @@
+#include "modio/modio_config.h"
 #include "modio/modio_scripting.h"
 #include "modio/modio_service.h"
 
@@ -40,6 +41,17 @@ public:
       return false;
     }
     ctx.schedule().add(nxe::sys::Stage::Update, PUMP_SYSTEM);
+
+    if (const Modio::Optional<ServiceConfig> config = load_project_config();
+        config.has_value()) {
+      nx::logi("modio: found {}, auto-configuring", kDefaultConfigPath);
+      m_service.initialize(*config);
+    } else {
+      nx::logi("modio: no {} found; waiting for a script to call "
+               "modio_configure",
+               kDefaultConfigPath);
+    }
+
     nx::logi("modio: attached");
     return true;
   }

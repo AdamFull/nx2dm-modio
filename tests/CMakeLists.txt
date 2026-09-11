@@ -6,9 +6,11 @@ add_executable(nx_modio_tests
         test_modio_collections.cpp
         test_modio_smoke.cpp
         test_modio_scripting.cpp
+        test_modio_config.cpp
         ../modio_module.cpp
         ../modio_service.cpp
         ../modio_scripting.cpp
+        ../modio_config.cpp
         ../modio_user.cpp
         ../modio_authoring.cpp
         ../modio_monetization.cpp
