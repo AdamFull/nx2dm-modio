@@ -10,8 +10,8 @@
 // -server hosting API, meant to be driven by a server process's own native
 // bootstrap code, not a game's Luau scripts.
 
-#include "core/app/engine.h"
-#include "core/script/script_host.h"
+#include "app/engine.h"
+#include "script/script_host.h"
 
 #include <memory>
 
