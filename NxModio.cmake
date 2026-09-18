@@ -48,11 +48,18 @@ function(nx_add_modio)
         include(FetchContent)
         find_package(Git 2.25 REQUIRED)
         message(STATUS "nx2d: fetching mod.io SDK ${NX_MODIO_TAG} (platform ${MODIO_PLATFORM})")
+        # On Linux, modio's own platform CMake unconditionally builds its
+        # bundled ext/mbedtls, colliding by target name with nx2d's own
+        # third_party/mbedtls (curl's TLS backend there, and GNS's when
+        # selected) whenever both are configured in the same run - see
+        # patch_linux_mbedtls.cmake.
         FetchContent_Declare(modio_sdk
                 GIT_REPOSITORY "${NX_MODIO_REPOSITORY}"
                 GIT_TAG "${NX_MODIO_TAG}"
                 GIT_SUBMODULES_RECURSE TRUE
-                GIT_PROGRESS TRUE)
+                GIT_PROGRESS TRUE
+                PATCH_COMMAND "${CMAKE_COMMAND}" -P
+                "${CMAKE_CURRENT_LIST_DIR}/patch_linux_mbedtls.cmake")
         FetchContent_MakeAvailable(modio_sdk)
     endif ()
 
