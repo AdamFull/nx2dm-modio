@@ -139,16 +139,47 @@ All in `tests/`, run via `python nx.py test -k modio -- -DNX_MODULE_MODIO=ON`:
 
 ## Platform status
 
-Only Windows has actually been configured, built, and run. The CMake platform
+Windows and Android have been configured, built and run. The CMake platform
 detection (`_nx_modio_platform_string()` in `NxModio.cmake`) has branches for
-Android/iOS/Apple/Linux mirroring `cmake/NxModules.cmake`'s
-`_nx_current_platform`, but none of those branches have been exercised.
+iOS/Apple/Linux mirroring `cmake/NxModules.cmake`'s `_nx_current_platform`,
+but those branches have not been exercised.
+
+### Android
+
+The SDK needs three things beyond the native library, none of which it can
+arrange for itself:
+
+- **A JNI bring-up before `Modio::InitializeAsync`** - `modio_android.cpp`
+  passes the `JavaVM`, then the activity, then calls `InitializeAndroid()`, in
+  that order. `Service::initialize()` runs it and fails the service if it does
+  not succeed. Skipping it does not degrade gracefully: the SDK's file service
+  calls a null JNI method ID and the process takes a SIGSEGV before the first
+  frame.
+- **`Modio.java` inside the APK** - the class its JNI wrapper looks up by
+  name. Committed at `android/java/com/modio/modiosdk/`, which `:app`'s
+  source-set loop picks up for any enabled module.
+- **`modio.crt` at the APK asset root** - `Modio.java` copies it out of the
+  asset manager by a path with no directory part, so the module's
+  `android/build.gradle.kts` stages it separately from the engine's usual
+  per-module `modules/<name>/` asset tree.
+
+The last two are committed copies of SDK files, because Gradle assembles the
+APK from committed directories while the SDK only exists inside the CMake
+build tree. `NxModio.cmake` hashes both against the fetched SDK at configure
+time and fails the build if `NX_MODIO_TAG` has moved out from under them - a
+stale `Modio.java` would otherwise reappear as that same unexplained SIGSEGV.
+
+`Modio::SetGlobalActivity` stores the `jobject` without taking a reference of
+its own, so `modio_android.cpp` holds the global ref for the life of the
+process. Note also that the SDK only reaches this code when a project actually
+configures it: with no `/config/modio.ini` the module attaches and waits, and
+none of the above runs.
 
 ## Known gaps
 
 - No live coverage of the full authenticated UGC lifecycle (email auth,
   subscribe + real file download/install, purchases) - all need a real
   mod.io user account, which isn't automatable here.
-- No cross-platform verification (see above).
+- No cross-platform verification beyond Windows and Android (see above).
 - `NX_MODIO_SOURCE_DIR` (local SDK checkout override) is unexercised - only
   the `FetchContent` git path has actually been run.

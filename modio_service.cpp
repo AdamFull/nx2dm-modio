@@ -4,6 +4,10 @@
 
 #include "core/foundation/diagnostics/log.h"
 
+#if defined(__ANDROID__)
+#include "modio/modio_android.h"
+#endif
+
 namespace nxm::modio {
 namespace {
 
@@ -68,6 +72,15 @@ void Service::initialize(const ServiceConfig &config) {
   m_phase = Phase::Initializing;
   m_mod_management_enabled = false;
   Modio::SetLogCallback(forward_sdk_log);
+#if defined(__ANDROID__)
+  // Must precede InitializeAsync: the SDK's own file service reaches straight
+  // into JNI for its storage paths and has no null check to fall back on.
+  if (!initialize_android_backend()) {
+    m_phase = Phase::Failed;
+    m_last_error = not_ready_error();
+    return;
+  }
+#endif
   const Modio::Environment environment = config.test_environment
                                              ? Modio::Environment::Test
                                              : Modio::Environment::Live;
