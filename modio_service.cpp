@@ -12,15 +12,24 @@ const nx::log::Category log_modio = nx::log::category("modio");
 [[nodiscard]] nx::string_view event_name(
     const Modio::ModManagementEvent::EventType type) noexcept {
   switch (type) {
+  case Modio::ModManagementEvent::EventType::BeginInstall:
+    return "installing";
   case Modio::ModManagementEvent::EventType::Installed:
     return "installed";
+  case Modio::ModManagementEvent::EventType::BeginUpdate:
+    return "updating";
   case Modio::ModManagementEvent::EventType::Updated:
     return "updated";
+  case Modio::ModManagementEvent::EventType::BeginUninstall:
+    return "uninstalling";
   case Modio::ModManagementEvent::EventType::Uninstalled:
     return "uninstalled";
+  case Modio::ModManagementEvent::EventType::BeginUpload:
+    return "uploading";
   case Modio::ModManagementEvent::EventType::Uploaded:
     return "uploaded";
   }
+  // Not dead: a future SDK can add an event this build has never heard of.
   return "unknown";
 }
 
