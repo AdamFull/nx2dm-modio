@@ -24,7 +24,8 @@ target_include_directories(nx_modio_tests PRIVATE
         "${NX_ENGINE_ROOT}/engine" "${NX_ENGINE_ROOT}/modules")
 
 target_link_libraries(nx_modio_tests
-        PRIVATE nx::test nx::foundation nx::engine modioStatic nx::compile_options)
+        PRIVATE nx::test nx::foundation nx::engine nx::script_luau
+        modioStatic nx::compile_options)
 
 set_target_properties(nx_modio_tests PROPERTIES FOLDER "tests")
 nxtest_discover_tests(nx_modio_tests LABELS modio)

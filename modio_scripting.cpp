@@ -50,6 +50,27 @@ void end_op(AsyncOp &op, const Modio::ErrorCode ec) {
 
 } // namespace
 
+namespace {
+
+/// One mod as a script reads it.
+struct ModRecord {
+  f64 id = 0.0;
+  nx::string name;
+};
+
+/// One installed mod, with where it lives on disk.
+struct InstalledModRecord {
+  f64 id = 0.0;
+  nx::string name;
+  nx::string path;
+};
+
+[[nodiscard]] f64 id_of(const Modio::ModID id) {
+  return static_cast<f64>(static_cast<Modio::ModID::UnderlyingType>(id));
+}
+
+}
+
 void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
   host.expose_as("modio_configure", [&ctx](const f64 game_id,
                                            const nx::string_view api_key,
@@ -130,11 +151,28 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
                                      nx::cast<i64>(mod_id)));
   });
 
+  host.expose_as("modio_subscribed_mods", [&ctx] {
+    nx::vector<ModRecord> out;
+    if (const Service *const service = service_of(ctx))
+      for (const auto &[id, entry] : service->subscriptions())
+        out.push_back({id_of(id), nx::string(entry.GetModProfile().ProfileName)});
+    return out;
+  });
+
   host.expose_as("modio_subscribed_count", [&ctx]() {
     const Service *const service = service_of(ctx);
     return service == nullptr
               ? 0.0
               : nx::cast<f64>(service->subscriptions().size());
+  });
+
+  host.expose_as("modio_installed_mods", [&ctx] {
+    nx::vector<InstalledModRecord> out;
+    if (const Service *const service = service_of(ctx))
+      for (const auto &[id, entry] : service->installations(true))
+        out.push_back({id_of(id), nx::string(entry.GetModProfile().ProfileName),
+                       nx::string(entry.GetPath())});
+    return out;
   });
 
   host.expose_as("modio_installed_count", [&ctx]() {
@@ -498,6 +536,14 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     fetch_user_purchases(*service,
                          [op](const Modio::ErrorCode ec) { end_op(*op, ec); });
     return true;
+  });
+
+  host.expose_as("modio_purchased_mods", [&ctx] {
+    nx::vector<ModRecord> out;
+    if (const Service *const service = service_of(ctx))
+      for (const auto &[id, info] : query_user_purchased_mods(*service))
+        out.push_back({id_of(id), nx::string(info.ProfileName)});
+    return out;
   });
 
   host.expose_as("modio_purchased_mods_count", [&ctx]() {

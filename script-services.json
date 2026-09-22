@@ -45,8 +45,16 @@
       "signature": "(number)->(boolean)"
     },
     {
+      "name": "modio_subscribed_mods",
+      "signature": "()->({{id: number, name: string}})"
+    },
+    {
       "name": "modio_subscribed_count",
       "signature": "()->(number)"
+    },
+    {
+      "name": "modio_installed_mods",
+      "signature": "()->({{id: number, name: string, path: string}})"
     },
     {
       "name": "modio_installed_count",
@@ -171,6 +179,10 @@
     {
       "name": "modio_fetch_user_purchases",
       "signature": "()->(boolean)"
+    },
+    {
+      "name": "modio_purchased_mods",
+      "signature": "()->({{id: number, name: string}})"
     },
     {
       "name": "modio_purchased_mods_count",
