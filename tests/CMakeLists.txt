@@ -29,3 +29,6 @@ target_link_libraries(nx_modio_tests
 
 set_target_properties(nx_modio_tests PROPERTIES FOLDER "tests")
 nxtest_discover_tests(nx_modio_tests LABELS modio)
+
+target_compile_definitions(nx_modio_tests PRIVATE
+        NX_MODULE_SERVICES_MANIFEST="${CMAKE_CURRENT_SOURCE_DIR}/../script-services.json")

@@ -1,7 +1,9 @@
 #include "framework/nxtest.h"
 
 #include "app/engine.h"
+#include "core/foundation/platform/filesystem.h"
 #include "script/luau/luau_backend.h"
+#include "script/luau/luau_bindings.h"
 #include "script/script_host.h"
 #include "modio/modio_scripting.h"
 
@@ -20,105 +22,20 @@ struct Exposed {
     expose_modio_services(host, ctx);
     services = host.services();
   }
-
-  [[nodiscard]] const script::Host::ServiceInfo *
-  find(const nx::string_view name) const {
-    for (const script::Host::ServiceInfo &one : services)
-      if (one.name == name)
-        return &one;
-    return nullptr;
-  }
 };
 
 } // namespace
 
-// This is the one place a mismatch between what modio_scripting.cpp actually
-// registers and what modules/modio/script-services.json declares to Luau
-// would show up: GenerateHostDeclarations.cmake types host_api.luau purely
-// from the JSON, with no cross-check against the real C++ callables (see
-// nxe::script::detail::spell_signature, which IS the ground truth used here
-// via Host::services()). Keep this list in sync with script-services.json.
-TEST_CASE("modio scripting: every service is exposed with the shape a script "
-          "is told about") {
+TEST_CASE("modio scripting: every service is exposed as script-services.json "
+          "declares it") {
   const Exposed exposed;
+  const auto manifest = nx::fs::file_read_text(
+      nx::fs::path_view(NX_MODULE_SERVICES_MANIFEST));
+  REQUIRE(manifest);
 
-  static constexpr struct {
-    nx::string_view name;
-    nx::string_view signature;
-  } WANT[] = {
-      {"modio_configure", "(number,string,boolean)->(boolean)"},
-      {"modio_ready", "()->(boolean)"},
-      {"modio_authenticated", "()->(boolean)"},
-      {"modio_busy", "()->(boolean)"},
-      {"modio_request_email_code", "(string)->(boolean)"},
-      {"modio_authenticate_email_code", "(string)->(boolean)"},
-      {"modio_enable_mod_management", "()->(boolean)"},
-      {"modio_subscribe", "(number)->(boolean)"},
-      {"modio_unsubscribe", "(number)->(boolean)"},
-      {"modio_is_subscribed", "(number)->(boolean)"},
-      {"modio_is_installed", "(number)->(boolean)"},
-      {"modio_subscribed_mods", "()->({{id: number, name: string}})"},
-      {"modio_subscribed_count", "()->(number)"},
-      {"modio_installed_mods", "()->({{id: number, name: string, path: string}})"},
-      {"modio_installed_count", "()->(number)"},
-      {"modio_op_busy", "()->(boolean)"},
-      {"modio_op_error", "()->(string)"},
-      {"modio_op_result_id", "()->(number)"},
-      {"modio_op_result_text", "()->(string)"},
-      {"modio_set_language", "(number)->(boolean)"},
-      {"modio_get_language", "()->(number)"},
-      {"modio_clear_user_data", "()->(boolean)"},
-      {"modio_refresh_user_data", "()->(boolean)"},
-      {"modio_get_user_media", "(number)->(boolean)"},
-      {"modio_mute_user", "(number)->(boolean)"},
-      {"modio_unmute_user", "(number)->(boolean)"},
-      {"modio_follow_user", "(number)->(boolean)"},
-      {"modio_unfollow_user", "(number)->(boolean)"},
-      {"modio_new_mod_handle", "()->(number)"},
-      {"modio_submit_new_mod", "(number,string,string,string)->(boolean)"},
-      {"modio_submit_mod_changes",
-       "(number,string,string,string,string)->(boolean)"},
-      {"modio_submit_new_mod_file", "(number,string,string,string)->(boolean)"},
-      {"modio_submit_new_mod_source_file",
-       "(number,string,string,string)->(boolean)"},
-      {"modio_get_mod_logo", "(number,number)->(boolean)"},
-      {"modio_get_mod_gallery_image", "(number,number,number)->(boolean)"},
-      {"modio_get_mod_creator_avatar", "(number,number)->(boolean)"},
-      {"modio_add_or_update_mod_logo", "(number,string)->(boolean)"},
-      {"modio_submit_mod_rating", "(number,number)->(boolean)"},
-      {"modio_add_mod_dependency", "(number,number)->(boolean)"},
-      {"modio_delete_mod_dependency", "(number,number)->(boolean)"},
-      {"modio_archive_mod", "(number)->(boolean)"},
-      {"modio_has_validation_error", "()->(boolean)"},
-      {"modio_purchase_mod", "(number,number)->(boolean)"},
-      {"modio_fetch_wallet_balance", "()->(boolean)"},
-      {"modio_fetch_user_purchases", "()->(boolean)"},
-      {"modio_purchased_mods", "()->({{id: number, name: string}})"},
-      {"modio_purchased_mods_count", "()->(number)"},
-      {"modio_force_uninstall_mod", "(number)->(boolean)"},
-      {"modio_prioritize_transfer_for_mod", "(number)->(boolean)"},
-      {"modio_current_update_mod_id", "()->(number)"},
-      {"modio_current_update_state", "()->(number)"},
-      {"modio_current_update_progress", "()->(number)"},
-      {"modio_storage_consumed_bytes", "()->(number)"},
-      {"modio_default_install_directory", "(number)->(string)"},
-      {"modio_get_mod_collection_info", "(number)->(boolean)"},
-      {"modio_subscribe_to_mod_collection", "(number)->(boolean)"},
-      {"modio_unsubscribe_from_mod_collection", "(number)->(boolean)"},
-      {"modio_follow_mod_collection", "(number)->(boolean)"},
-      {"modio_unfollow_mod_collection", "(number)->(boolean)"},
-      {"modio_submit_mod_collection_rating", "(number,number)->(boolean)"},
-      {"modio_get_mod_collection_logo", "(number,number)->(boolean)"},
-      {"modio_get_mod_collection_creator_avatar",
-       "(number,number)->(boolean)"},
-  };
-
-  CHECK(exposed.services.size() == nx::array_size(WANT));
-  for (const auto &want : WANT) {
-    const script::Host::ServiceInfo *const found = exposed.find(want.name);
-    REQUIRE(found != nullptr);
-    CHECK(found->signature == want.signature);
-  }
+  nx::string error;
+  if (!script::luau_manifest_agrees(manifest.value(), exposed.services, error))
+    FAIL(error.c_str());
 }
 
 TEST_CASE("modio scripting: the module hands them over on its own") {
