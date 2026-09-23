@@ -41,6 +41,8 @@ public:
       return false;
     }
     ctx.schedule().add(nxe::sys::Stage::Update, PUMP_SYSTEM);
+    // The SDK expects its pump on one thread, the one it was set up on.
+    ctx.schedule().pin_to_main_thread(PUMP_SYSTEM);
 
     if (const Modio::Optional<ServiceConfig> config = load_project_config();
         config.has_value()) {
