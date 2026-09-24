@@ -13,7 +13,7 @@ void purchase_mod(
   if (!service.ready())
     return on_done(not_ready_error(), {});
   Modio::PurchaseModAsync(id, expected_virtual_currency_price,
-                          std::move(on_done));
+                          service.track(std::move(on_done)));
 }
 
 void purchase_mod_with_entitlement(
@@ -25,7 +25,7 @@ void purchase_mod_with_entitlement(
   if (!service.ready())
     return on_done(not_ready_error(), {});
   Modio::PurchaseModWithEntitlementAsync(id, std::move(params),
-                                         std::move(on_done));
+                                         service.track(std::move(on_done)));
 }
 
 void refresh_user_entitlements(
@@ -35,7 +35,8 @@ void refresh_user_entitlements(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::RefreshUserEntitlementsAsync(std::move(params), std::move(on_done));
+  Modio::RefreshUserEntitlementsAsync(std::move(params),
+                                      service.track(std::move(on_done)));
 }
 
 void get_available_user_entitlements(
@@ -46,7 +47,7 @@ void get_available_user_entitlements(
   if (!service.ready())
     return on_done(not_ready_error(), {});
   Modio::GetAvailableUserEntitlementsAsync(std::move(params),
-                                           std::move(on_done));
+                                           service.track(std::move(on_done)));
 }
 
 void get_user_wallet_balance(
@@ -55,14 +56,14 @@ void get_user_wallet_balance(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetUserWalletBalanceAsync(std::move(on_done));
+  Modio::GetUserWalletBalanceAsync(service.track(std::move(on_done)));
 }
 
 void fetch_user_purchases(const Service &service,
                           std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::FetchUserPurchasesAsync(std::move(on_done));
+  Modio::FetchUserPurchasesAsync(service.track(std::move(on_done)));
 }
 
 std::map<Modio::ModID, Modio::ModInfo>

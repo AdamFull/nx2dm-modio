@@ -4,6 +4,8 @@
 
 #include "core/foundation/strings/utf8_string.h"
 
+#include <atomic>
+#include <chrono>
 #include <functional>
 #include <map>
 
@@ -17,6 +19,42 @@ struct ServiceConfig {
 };
 
 enum class Phase : u8 { Idle, Initializing, Ready, ShuttingDown, Failed };
+
+/// How long an idle SDK goes between pumps, so its own background work (mod
+/// management polling, log flushing) still runs.
+inline constexpr std::chrono::milliseconds IDLE_PUMP_INTERVAL{100};
+
+/// Whether pumping is worth it now. Each pump costs a full millisecond - the
+/// SDK polls its event loop that long even with nothing queued - so it runs
+/// every frame only while the SDK has work in flight.
+[[nodiscard]] bool
+pump_due(Phase phase, bool work_in_flight,
+         std::chrono::steady_clock::duration since_pump) noexcept;
+
+namespace detail {
+
+/// One SDK operation whose callback has not run yet.
+class PendingOperation {
+public:
+  explicit PendingOperation(nx::shared_ptr<std::atomic<u32>> count) noexcept
+      : m_count(std::move(count)) {
+    m_count->fetch_add(1, std::memory_order_relaxed);
+  }
+  ~PendingOperation() { settle(); }
+  PendingOperation(const PendingOperation &) = delete;
+  PendingOperation &operator=(const PendingOperation &) = delete;
+
+  void settle() noexcept {
+    if (!m_settled.exchange(true, std::memory_order_acq_rel))
+      m_count->fetch_sub(1, std::memory_order_release);
+  }
+
+private:
+  nx::shared_ptr<std::atomic<u32>> m_count;
+  std::atomic<bool> m_settled{false};
+};
+
+} // namespace detail
 
 /// Thin lifecycle wrapper around the mod.io SDK's global Modio:: API. The SDK
 /// itself owns all state behind free functions, not an instance this class
@@ -38,6 +76,26 @@ public:
   /// longer ShuttingDown - the SDK needs its event loop pumped to unwind.
   void shutdown();
   void pump();
+  /// pump_due() for this service's phase and operations in flight.
+  [[nodiscard]] bool pump_due(std::chrono::steady_clock::time_point now) const;
+
+  /// Wraps an SDK operation's callback, so the pump runs every frame until the
+  /// SDK has called it. A C++ caller using Modio::* directly should wrap its
+  /// own callbacks too, or wait up to IDLE_PUMP_INTERVAL for each one.
+  template <class... Args>
+  [[nodiscard]] std::function<void(Args...)>
+  track(std::function<void(Args...)> on_done) const {
+    auto operation = nx::make_shared<detail::PendingOperation>(m_pending);
+    return [operation = std::move(operation),
+            on_done = std::move(on_done)](Args... args) {
+      operation->settle();
+      if (on_done)
+        on_done(std::forward<Args>(args)...);
+    };
+  }
+  [[nodiscard]] u32 pending_operations() const noexcept {
+    return m_pending->load(std::memory_order_acquire);
+  }
 
   [[nodiscard]] Phase phase() const noexcept { return m_phase; }
   [[nodiscard]] bool ready() const noexcept { return m_phase == Phase::Ready; }
@@ -124,6 +182,10 @@ private:
   bool m_mod_management_enabled = false;
   bool m_last_op_busy = false;
   nx::string m_last_op_error;
+  // Shared with every tracked callback, which the SDK may destroy after this.
+  nx::shared_ptr<std::atomic<u32>> m_pending =
+      nx::make_shared<std::atomic<u32>>(0u);
+  std::chrono::steady_clock::time_point m_last_pump{};
 };
 
 }

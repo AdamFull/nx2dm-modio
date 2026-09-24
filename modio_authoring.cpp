@@ -13,7 +13,8 @@ void submit_new_mod(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::SubmitNewModAsync(handle, std::move(params), std::move(on_done));
+  Modio::SubmitNewModAsync(handle, std::move(params),
+                           service.track(std::move(on_done)));
 }
 
 void submit_mod_changes(
@@ -22,7 +23,8 @@ void submit_mod_changes(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::SubmitModChangesAsync(id, std::move(params), std::move(on_done));
+  Modio::SubmitModChangesAsync(id, std::move(params),
+                               service.track(std::move(on_done)));
 }
 
 bool submit_new_mod_file(const Service &service, const Modio::ModID id,
@@ -47,7 +49,7 @@ void get_mod_logo(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetModMediaAsync(id, size, std::move(on_done));
+  Modio::GetModMediaAsync(id, size, service.track(std::move(on_done)));
 }
 
 void get_mod_gallery_image(
@@ -57,7 +59,7 @@ void get_mod_gallery_image(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetModMediaAsync(id, size, index, std::move(on_done));
+  Modio::GetModMediaAsync(id, size, index, service.track(std::move(on_done)));
 }
 
 void get_mod_creator_avatar(
@@ -67,7 +69,7 @@ void get_mod_creator_avatar(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetModMediaAsync(id, size, std::move(on_done));
+  Modio::GetModMediaAsync(id, size, service.track(std::move(on_done)));
 }
 
 void add_or_update_mod_logo(const Service &service, const Modio::ModID id,
@@ -75,7 +77,8 @@ void add_or_update_mod_logo(const Service &service, const Modio::ModID id,
                             std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::AddOrUpdateModLogoAsync(id, std::move(logo_path), std::move(on_done));
+  Modio::AddOrUpdateModLogoAsync(id, std::move(logo_path),
+                                 service.track(std::move(on_done)));
 }
 
 void add_or_update_mod_gallery_images(
@@ -85,7 +88,8 @@ void add_or_update_mod_gallery_images(
   if (!service.ready())
     return on_done(not_ready_error());
   Modio::AddOrUpdateModGalleryImagesAsync(id, std::move(image_paths),
-                                          sync_gallery, std::move(on_done));
+                                          sync_gallery,
+                                          service.track(std::move(on_done)));
 }
 
 void submit_mod_rating(const Service &service, const Modio::ModID id,
@@ -93,7 +97,7 @@ void submit_mod_rating(const Service &service, const Modio::ModID id,
                        std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::SubmitModRatingAsync(id, rating, std::move(on_done));
+  Modio::SubmitModRatingAsync(id, rating, service.track(std::move(on_done)));
 }
 
 void get_mod_tag_options(
@@ -103,7 +107,7 @@ void get_mod_tag_options(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetModTagOptionsAsync(std::move(on_done));
+  Modio::GetModTagOptionsAsync(service.track(std::move(on_done)));
 }
 
 void get_mod_dependencies(
@@ -113,7 +117,8 @@ void get_mod_dependencies(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetModDependenciesAsync(id, recursive, std::move(on_done));
+  Modio::GetModDependenciesAsync(id, recursive,
+                                 service.track(std::move(on_done)));
 }
 
 void add_mod_dependencies(const Service &service, const Modio::ModID id,
@@ -122,7 +127,7 @@ void add_mod_dependencies(const Service &service, const Modio::ModID id,
   if (!service.ready())
     return on_done(not_ready_error());
   Modio::AddModDependenciesAsync(id, std::move(dependencies),
-                                 std::move(on_done));
+                                 service.track(std::move(on_done)));
 }
 
 void delete_mod_dependencies(const Service &service, const Modio::ModID id,
@@ -131,21 +136,22 @@ void delete_mod_dependencies(const Service &service, const Modio::ModID id,
   if (!service.ready())
     return on_done(not_ready_error());
   Modio::DeleteModDependenciesAsync(id, std::move(dependencies),
-                                    std::move(on_done));
+                                    service.track(std::move(on_done)));
 }
 
 void report_content(const Service &service, Modio::ReportParams report,
                     std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::ReportContentAsync(std::move(report), std::move(on_done));
+  Modio::ReportContentAsync(std::move(report),
+                            service.track(std::move(on_done)));
 }
 
 void archive_mod(const Service &service, const Modio::ModID id,
                  std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::ArchiveModAsync(id, std::move(on_done));
+  Modio::ArchiveModAsync(id, service.track(std::move(on_done)));
 }
 
 void list_user_created_mods(
@@ -155,7 +161,8 @@ void list_user_created_mods(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::ListUserCreatedModsAsync(std::move(filter), std::move(on_done));
+  Modio::ListUserCreatedModsAsync(std::move(filter),
+                                  service.track(std::move(on_done)));
 }
 
 std::vector<Modio::FieldError> last_validation_error() {

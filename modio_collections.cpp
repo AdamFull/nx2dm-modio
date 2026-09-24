@@ -11,7 +11,8 @@ void list_mod_collections(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::ListModCollectionsAsync(std::move(filter), std::move(on_done));
+  Modio::ListModCollectionsAsync(std::move(filter),
+                                 service.track(std::move(on_done)));
 }
 
 void get_mod_collection_info(
@@ -21,7 +22,7 @@ void get_mod_collection_info(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetModCollectionInfoAsync(id, std::move(on_done));
+  Modio::GetModCollectionInfoAsync(id, service.track(std::move(on_done)));
 }
 
 void get_mod_collection_mods(
@@ -31,7 +32,7 @@ void get_mod_collection_mods(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetModCollectionModsAsync(id, std::move(on_done));
+  Modio::GetModCollectionModsAsync(id, service.track(std::move(on_done)));
 }
 
 void submit_mod_collection_rating(
@@ -39,7 +40,8 @@ void submit_mod_collection_rating(
     const Modio::Rating rating, std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::SubmitModCollectionRatingAsync(id, rating, std::move(on_done));
+  Modio::SubmitModCollectionRatingAsync(id, rating,
+                                        service.track(std::move(on_done)));
 }
 
 void subscribe_to_mod_collection(const Service &service,
@@ -47,7 +49,7 @@ void subscribe_to_mod_collection(const Service &service,
                                  std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::SubscribeToModCollectionAsync(id, std::move(on_done));
+  Modio::SubscribeToModCollectionAsync(id, service.track(std::move(on_done)));
 }
 
 void unsubscribe_from_mod_collection(
@@ -55,7 +57,8 @@ void unsubscribe_from_mod_collection(
     std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::UnsubscribeFromModCollectionAsync(id, std::move(on_done));
+  Modio::UnsubscribeFromModCollectionAsync(id,
+                                           service.track(std::move(on_done)));
 }
 
 void follow_mod_collection(
@@ -65,7 +68,7 @@ void follow_mod_collection(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::FollowModCollectionAsync(id, std::move(on_done));
+  Modio::FollowModCollectionAsync(id, service.track(std::move(on_done)));
 }
 
 void unfollow_mod_collection(const Service &service,
@@ -73,7 +76,7 @@ void unfollow_mod_collection(const Service &service,
                              std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::UnfollowModCollectionAsync(id, std::move(on_done));
+  Modio::UnfollowModCollectionAsync(id, service.track(std::move(on_done)));
 }
 
 void list_user_followed_mod_collections(
@@ -84,7 +87,7 @@ void list_user_followed_mod_collections(
   if (!service.ready())
     return on_done(not_ready_error(), {});
   Modio::ListUserFollowedModCollectionsAsync(std::move(filter),
-                                             std::move(on_done));
+                                             service.track(std::move(on_done)));
 }
 
 void get_mod_collection_logo(
@@ -94,7 +97,8 @@ void get_mod_collection_logo(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetModCollectionMediaAsync(id, size, std::move(on_done));
+  Modio::GetModCollectionMediaAsync(id, size,
+                                    service.track(std::move(on_done)));
 }
 
 void get_mod_collection_creator_avatar(
@@ -104,7 +108,8 @@ void get_mod_collection_creator_avatar(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::GetModCollectionMediaAsync(id, size, std::move(on_done));
+  Modio::GetModCollectionMediaAsync(id, size,
+                                    service.track(std::move(on_done)));
 }
 
 }

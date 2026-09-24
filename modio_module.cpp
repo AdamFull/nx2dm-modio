@@ -32,17 +32,21 @@ public:
   }
 
   bool on_attach(nxe::ModuleContext &ctx) override {
+    nx::thread_pool *const threads = &ctx.threads();
     if (!ctx.schedule().try_define(
-            PUMP_SYSTEM, nxe::sys::SystemFn([this](const nxe::sys::Context &) {
-              m_service.pump();
+            PUMP_SYSTEM,
+            nxe::sys::SystemFn([this, threads](const nxe::sys::Context &) {
+              if (!m_service.pump_due(std::chrono::steady_clock::now()))
+                return;
+              // The SDK expects its pump on one thread, the one it was set up
+              // on.
+              threads->run_on_main([this] { m_service.pump(); });
             }))) {
       nx::logw("modio: system '{}' is already owned by another module",
                PUMP_SYSTEM);
       return false;
     }
     ctx.schedule().add(nxe::sys::Stage::Update, PUMP_SYSTEM);
-    // The SDK expects its pump on one thread, the one it was set up on.
-    ctx.schedule().pin_to_main_thread(PUMP_SYSTEM);
 
     if (const Modio::Optional<ServiceConfig> config = load_project_config();
         config.has_value()) {

@@ -8,7 +8,7 @@ void force_uninstall_mod(const Service &service, const Modio::ModID id,
                          std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::ForceUninstallModAsync(id, std::move(on_done));
+  Modio::ForceUninstallModAsync(id, service.track(std::move(on_done)));
 }
 
 Modio::ErrorCode prioritize_transfer_for_mod(const Service &service,
@@ -42,7 +42,7 @@ void preview_external_updates(
         on_done) {
   if (!service.ready())
     return on_done(not_ready_error(), {});
-  Modio::PreviewExternalUpdatesAsync(std::move(on_done));
+  Modio::PreviewExternalUpdatesAsync(service.track(std::move(on_done)));
 }
 
 std::vector<std::string> base_mod_installation_directories(const Service &service) {
@@ -87,14 +87,16 @@ void metrics_session_start(const Service &service,
                            std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::MetricsSessionStartAsync(std::move(params), std::move(on_done));
+  Modio::MetricsSessionStartAsync(std::move(params),
+                                  service.track(std::move(on_done)));
 }
 
 void metrics_session_send_heartbeat_once(
     const Service &service, std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::MetricsSessionSendHeartbeatOnceAsync(std::move(on_done));
+  Modio::MetricsSessionSendHeartbeatOnceAsync(
+      service.track(std::move(on_done)));
 }
 
 void metrics_session_send_heartbeat_at_interval(
@@ -102,15 +104,15 @@ void metrics_session_send_heartbeat_at_interval(
     std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::MetricsSessionSendHeartbeatAtIntervalAsync(interval_seconds,
-                                                     std::move(on_done));
+  Modio::MetricsSessionSendHeartbeatAtIntervalAsync(
+      interval_seconds, service.track(std::move(on_done)));
 }
 
 void metrics_session_end(const Service &service,
                          std::function<void(Modio::ErrorCode)> on_done) {
   if (!service.ready())
     return on_done(not_ready_error());
-  Modio::MetricsSessionEndAsync(std::move(on_done));
+  Modio::MetricsSessionEndAsync(service.track(std::move(on_done)));
 }
 
 }

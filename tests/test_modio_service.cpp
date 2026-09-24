@@ -121,3 +121,61 @@ TEST_CASE("modio service: shutdown before any initialize is a no-op") {
   service.shutdown();
   CHECK(service.phase() == Phase::Idle);
 }
+
+TEST_CASE(
+    "modio service: the pump runs every frame while starting or stopping") {
+  using nxm::modio::pump_due;
+  CHECK(pump_due(Phase::Initializing, false, std::chrono::milliseconds(0)));
+  CHECK(pump_due(Phase::ShuttingDown, false, std::chrono::milliseconds(0)));
+  CHECK_FALSE(pump_due(Phase::Idle, true, std::chrono::seconds(10)));
+}
+
+TEST_CASE("modio service: an idle service pumps only at the idle interval") {
+  using nxm::modio::IDLE_PUMP_INTERVAL;
+  using nxm::modio::pump_due;
+  for (const Phase phase : {Phase::Ready, Phase::Failed}) {
+    CHECK_FALSE(pump_due(phase, false, std::chrono::milliseconds(0)));
+    CHECK_FALSE(pump_due(phase, false,
+                         IDLE_PUMP_INTERVAL - std::chrono::milliseconds(1)));
+    CHECK(pump_due(phase, false, IDLE_PUMP_INTERVAL));
+    CHECK(pump_due(phase, true, std::chrono::milliseconds(0)));
+  }
+}
+
+TEST_CASE("modio service: an idle service never asks for a pump") {
+  Service service;
+  CHECK_FALSE(service.pump_due(std::chrono::steady_clock::now()));
+}
+
+TEST_CASE("modio service: a tracked callback holds the pump until it runs") {
+  Service service;
+  int calls = 0;
+  std::function<void(Modio::ErrorCode)> callback =
+      service.track(std::function<void(Modio::ErrorCode)>(
+          [&](Modio::ErrorCode) { ++calls; }));
+  CHECK(service.pending_operations() == 1u);
+
+  callback(Modio::ErrorCode{});
+  CHECK(calls == 1);
+  CHECK(service.pending_operations() == 0u);
+
+  // An SDK that called back twice must not take another operation's count.
+  callback(Modio::ErrorCode{});
+  CHECK(calls == 2);
+  CHECK(service.pending_operations() == 0u);
+}
+
+TEST_CASE(
+    "modio service: a tracked callback dropped uncalled releases the pump") {
+  Service service;
+  {
+    std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfo>)>
+        callback = service.track(
+            std::function<void(Modio::ErrorCode,
+                               Modio::Optional<Modio::ModInfo>)>());
+    const auto copy = callback;
+    callback = nullptr;
+    CHECK(service.pending_operations() == 1u);
+  }
+  CHECK(service.pending_operations() == 0u);
+}

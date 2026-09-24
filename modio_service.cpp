@@ -127,7 +127,29 @@ void Service::shutdown() {
 void Service::pump() {
   if (m_phase == Phase::Idle)
     return;
+  m_last_pump = std::chrono::steady_clock::now();
   Modio::RunPendingHandlers();
+}
+
+bool pump_due(const Phase phase, const bool work_in_flight,
+              const std::chrono::steady_clock::duration since_pump) noexcept {
+  switch (phase) {
+  case Phase::Idle:
+    return false;
+  case Phase::Initializing:
+  case Phase::ShuttingDown:
+    return true;
+  case Phase::Ready:
+  case Phase::Failed:
+    break;
+  }
+  return work_in_flight || since_pump >= IDLE_PUMP_INTERVAL;
+}
+
+bool Service::pump_due(const std::chrono::steady_clock::time_point now) const {
+  const bool work_in_flight =
+      pending_operations() != 0 || (ready() && Modio::IsModManagementBusy());
+  return modio::pump_due(m_phase, work_in_flight, now - m_last_pump);
 }
 
 bool Service::authenticated() const {
@@ -206,7 +228,7 @@ void Service::request_email_code(
   if (!ready())
     return fail_not_ready(on_done);
   Modio::RequestEmailAuthCodeAsync(Modio::EmailAddress(std::string(email)),
-                                   tracked(std::move(on_done)));
+                                   track(tracked(std::move(on_done))));
 }
 
 void Service::authenticate_email_code(
@@ -214,35 +236,36 @@ void Service::authenticate_email_code(
   if (!ready())
     return fail_not_ready(on_done);
   Modio::AuthenticateUserEmailAsync(Modio::EmailAuthCode(std::string(code)),
-                                    tracked(std::move(on_done)));
+                                    track(tracked(std::move(on_done))));
 }
 
 void Service::verify_authentication(
     std::function<void(Modio::ErrorCode)> on_done) {
   if (!ready())
     return fail_not_ready(on_done);
-  Modio::VerifyUserAuthenticationAsync(tracked(std::move(on_done)));
+  Modio::VerifyUserAuthenticationAsync(track(tracked(std::move(on_done))));
 }
 
 void Service::subscribe(const Modio::ModID id, const bool include_dependencies,
                         std::function<void(Modio::ErrorCode)> on_done) {
   if (!ready() || !m_mod_management_enabled)
     return fail_not_ready(on_done);
-  Modio::SubscribeToModAsync(id, include_dependencies, tracked(std::move(on_done)));
+  Modio::SubscribeToModAsync(id, include_dependencies,
+                             track(tracked(std::move(on_done))));
 }
 
 void Service::unsubscribe(const Modio::ModID id,
                           std::function<void(Modio::ErrorCode)> on_done) {
   if (!ready() || !m_mod_management_enabled)
     return fail_not_ready(on_done);
-  Modio::UnsubscribeFromModAsync(id, tracked(std::move(on_done)));
+  Modio::UnsubscribeFromModAsync(id, track(tracked(std::move(on_done))));
 }
 
 void Service::fetch_external_updates(
     std::function<void(Modio::ErrorCode)> on_done) {
   if (!ready())
     return fail_not_ready(on_done);
-  Modio::FetchExternalUpdatesAsync(tracked(std::move(on_done)));
+  Modio::FetchExternalUpdatesAsync(track(tracked(std::move(on_done))));
 }
 
 std::map<Modio::ModID, Modio::ModCollectionEntry> Service::subscriptions() const {
@@ -269,7 +292,7 @@ void Service::search_mods(
   filter.IndexedResults(start_index, count);
   if (!name_contains.empty())
     filter.NameContains(std::string(name_contains));
-  Modio::ListAllModsAsync(filter, std::move(on_done));
+  Modio::ListAllModsAsync(filter, track(std::move(on_done)));
 }
 
 void Service::get_mod_info(
@@ -280,7 +303,7 @@ void Service::get_mod_info(
     on_done(not_ready_error(), {});
     return;
   }
-  Modio::GetModInfoAsync(id, std::move(on_done));
+  Modio::GetModInfoAsync(id, track(std::move(on_done)));
 }
 
 Modio::Optional<std::string> Service::installed_mod_path(const Modio::ModID id) const {
