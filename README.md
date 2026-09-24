@@ -75,13 +75,14 @@ module and there's no other config-loading precedent to build on.
 - `ModioModule::on_attach` also registers a `"modio.pump"` system in
   `Stage::Update` that calls `Service::pump()` on the main thread, since the
   SDK's callbacks only fire from inside `Modio::RunPendingHandlers()`. Each
-  call costs a full millisecond - the SDK polls its event loop that long even
-  with nothing queued - so the system pumps every frame only while the SDK is
-  starting or stopping, mod management is busy, or an operation's callback
-  is still pending (`Service::track()`). Otherwise it pumps every
-  `IDLE_PUMP_INTERVAL` (100 ms). A C++ caller using `Modio::*` directly
-  should wrap its callbacks with `Service::track()`, or accept that
-  latency.
+  call costs a full millisecond: the SDK's timer service re-posts itself every
+  tick, so its event loop never runs dry and spins to its time limit. The
+  system therefore pumps every frame only while the SDK is starting or
+  stopping, mod management is busy, or an operation's callback is still
+  pending (`Service::track()`). Otherwise it pumps every `IDLE_PUMP_INTERVAL`
+  (500 ms); the SDK's own idle work waits on timers of a second or more. A C++
+  caller using `Modio::*` directly should wrap its callbacks with
+  `Service::track()`, or accept that latency.
 
 ## Luau scripting surface
 

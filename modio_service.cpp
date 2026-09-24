@@ -3,6 +3,7 @@
 #include "modio/modio_errors.h"
 
 #include "core/foundation/diagnostics/log.h"
+#include "core/foundation/diagnostics/profiler.h"
 
 #if defined(__ANDROID__)
 #include "modio/modio_android.h"
@@ -127,6 +128,7 @@ void Service::shutdown() {
 void Service::pump() {
   if (m_phase == Phase::Idle)
     return;
+  NX_PROFILE_ZONE("modio::run_pending_handlers");
   m_last_pump = std::chrono::steady_clock::now();
   Modio::RunPendingHandlers();
 }

@@ -21,12 +21,14 @@ struct ServiceConfig {
 enum class Phase : u8 { Idle, Initializing, Ready, ShuttingDown, Failed };
 
 /// How long an idle SDK goes between pumps, so its own background work (mod
-/// management polling, log flushing) still runs.
-inline constexpr std::chrono::milliseconds IDLE_PUMP_INTERVAL{100};
+/// management polling, log flushing) still runs. That work waits on timers of
+/// a second or more, so a timer is seen at most this late.
+inline constexpr std::chrono::milliseconds IDLE_PUMP_INTERVAL{500};
 
-/// Whether pumping is worth it now. Each pump costs a full millisecond - the
-/// SDK polls its event loop that long even with nothing queued - so it runs
-/// every frame only while the SDK has work in flight.
+/// Whether pumping is worth it now. Each pump costs a full millisecond, and the
+/// frame waits for it: the SDK's timer service re-posts itself every tick, so
+/// its event loop always has a handler ready and runs to its time limit. It
+/// runs every frame only while the SDK has work in flight.
 [[nodiscard]] bool
 pump_due(Phase phase, bool work_in_flight,
          std::chrono::steady_clock::duration since_pump) noexcept;
