@@ -1,6 +1,8 @@
 #include "modio/modio_android.h"
 
+#include "core/foundation/diagnostics/diagnostic.h"
 #include "core/foundation/diagnostics/log.h"
+#include "core/foundation/fibers/scheduler.h"
 
 #include <SDL3/SDL_system.h>
 
@@ -26,6 +28,8 @@ bool initialize_android_backend() {
   // leaks the last one, and initialize() may run again after a failure.
   if (g_activity != nullptr)
     return true;
+  NX_ASSERT(!nx::fiber::in_fiber(),
+            "Java fails on a fiber stack; call it through run_on_main");
 
   JNIEnv *const env = static_cast<JNIEnv *>(SDL_GetAndroidJNIEnv());
   if (env == nullptr) {

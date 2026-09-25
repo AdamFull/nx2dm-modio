@@ -11,9 +11,13 @@
 // bootstrap code, not a game's Luau scripts.
 
 #include "app/engine.h"
+#include "core/foundation/core/callable.h"
+#include "core/foundation/threading/thread_pool.h"
 #include "script/script_host.h"
 
 #include <memory>
+#include <optional>
+#include <type_traits>
 
 namespace nxm::modio {
 namespace {
@@ -69,61 +73,91 @@ struct InstalledModRecord {
   return static_cast<f64>(static_cast<Modio::ModID::UnderlyingType>(id));
 }
 
+// Scripts run on a job's fiber, but the SDK calls into Java on Android, which
+// fails on a fiber stack, and it expects to be used from the thread that pumps
+// it. Each service therefore runs on the main thread.
+template <typename F, typename Sig> struct OnMain;
+
+template <typename F, typename R, typename... Args>
+struct OnMain<F, R(Args...)> {
+  nx::thread_pool *threads;
+  F fn;
+
+  R operator()(Args... args) const {
+    if constexpr (std::is_void_v<R>) {
+      threads->run_on_main([&] { fn(args...); });
+    } else {
+      std::optional<R> result;
+      threads->run_on_main([&] { result.emplace(fn(args...)); });
+      return std::move(*result);
+    }
+  }
+};
+
+template <typename F>
+void expose_on_main(nxe::script::Host &host, nxe::ModuleContext &ctx,
+                    const nx::string_view name, F &&fn) {
+  using Fn = std::decay_t<F>;
+  host.expose_as(name,
+                 OnMain<Fn, typename nx::detail::traits_of<Fn>::signature>{
+                     &ctx.threads(), std::forward<F>(fn)});
+}
 }
 
 void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
-  host.expose_as("modio_configure", [&ctx](const f64 game_id,
-                                           const nx::string_view api_key,
-                                           const bool test_environment) {
-    Service *const service = service_of(ctx);
-    if (service == nullptr || service->phase() != Phase::Idle)
-      return false;
-    ServiceConfig config;
-    config.game_id = nx::cast<i64>(game_id);
-    config.api_key = nx::string(api_key);
-    config.test_environment = test_environment;
-    service->initialize(config);
-    return true;
-  });
+  expose_on_main(host, ctx, "modio_configure",
+                 [&ctx](const f64 game_id, const nx::string_view api_key,
+                        const bool test_environment) {
+                   Service *const service = service_of(ctx);
+                   if (service == nullptr || service->phase() != Phase::Idle)
+                     return false;
+                   ServiceConfig config;
+                   config.game_id = nx::cast<i64>(game_id);
+                   config.api_key = nx::string(api_key);
+                   config.test_environment = test_environment;
+                   service->initialize(config);
+                   return true;
+                 });
 
-  host.expose_as("modio_ready", [&ctx]() {
+  expose_on_main(host, ctx, "modio_ready", [&ctx]() {
     const Service *const service = service_of(ctx);
     return service != nullptr && service->ready();
   });
 
-  host.expose_as("modio_authenticated", [&ctx]() {
+  expose_on_main(host, ctx, "modio_authenticated", [&ctx]() {
     const Service *const service = service_of(ctx);
     return service != nullptr && service->authenticated();
   });
 
-  host.expose_as("modio_busy", [&ctx]() {
+  expose_on_main(host, ctx, "modio_busy", [&ctx]() {
     const Service *const service = service_of(ctx);
     return service != nullptr && service->last_operation_busy();
   });
 
-  host.expose_as("modio_request_email_code", [&ctx](const nx::string_view email) {
-    Service *const service = service_of(ctx);
-    if (service == nullptr)
-      return false;
-    service->request_email_code(email);
-    return true;
-  });
+  expose_on_main(host, ctx, "modio_request_email_code",
+                 [&ctx](const nx::string_view email) {
+                   Service *const service = service_of(ctx);
+                   if (service == nullptr)
+                     return false;
+                   service->request_email_code(email);
+                   return true;
+                 });
 
-  host.expose_as("modio_authenticate_email_code",
-                [&ctx](const nx::string_view code) {
-                  Service *const service = service_of(ctx);
-                  if (service == nullptr)
-                    return false;
-                  service->authenticate_email_code(code);
-                  return true;
-                });
+  expose_on_main(host, ctx, "modio_authenticate_email_code",
+                 [&ctx](const nx::string_view code) {
+                   Service *const service = service_of(ctx);
+                   if (service == nullptr)
+                     return false;
+                   service->authenticate_email_code(code);
+                   return true;
+                 });
 
-  host.expose_as("modio_enable_mod_management", [&ctx]() {
+  expose_on_main(host, ctx, "modio_enable_mod_management", [&ctx]() {
     Service *const service = service_of(ctx);
     return service != nullptr && service->enable_mod_management();
   });
 
-  host.expose_as("modio_subscribe", [&ctx](const f64 mod_id) {
+  expose_on_main(host, ctx, "modio_subscribe", [&ctx](const f64 mod_id) {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -131,7 +165,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_unsubscribe", [&ctx](const f64 mod_id) {
+  expose_on_main(host, ctx, "modio_unsubscribe", [&ctx](const f64 mod_id) {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -139,19 +173,19 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_is_subscribed", [&ctx](const f64 mod_id) {
+  expose_on_main(host, ctx, "modio_is_subscribed", [&ctx](const f64 mod_id) {
     const Service *const service = service_of(ctx);
     return service != nullptr && service->is_subscribed(Modio::ModID(
                                      nx::cast<i64>(mod_id)));
   });
 
-  host.expose_as("modio_is_installed", [&ctx](const f64 mod_id) {
+  expose_on_main(host, ctx, "modio_is_installed", [&ctx](const f64 mod_id) {
     const Service *const service = service_of(ctx);
     return service != nullptr && service->is_installed(Modio::ModID(
                                      nx::cast<i64>(mod_id)));
   });
 
-  host.expose_as("modio_subscribed_mods", [&ctx] {
+  expose_on_main(host, ctx, "modio_subscribed_mods", [&ctx] {
     nx::vector<ModRecord> out;
     if (const Service *const service = service_of(ctx))
       for (const auto &[id, entry] : service->subscriptions())
@@ -159,14 +193,14 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return out;
   });
 
-  host.expose_as("modio_subscribed_count", [&ctx]() {
+  expose_on_main(host, ctx, "modio_subscribed_count", [&ctx]() {
     const Service *const service = service_of(ctx);
     return service == nullptr
               ? 0.0
               : nx::cast<f64>(service->subscriptions().size());
   });
 
-  host.expose_as("modio_installed_mods", [&ctx] {
+  expose_on_main(host, ctx, "modio_installed_mods", [&ctx] {
     nx::vector<InstalledModRecord> out;
     if (const Service *const service = service_of(ctx))
       for (const auto &[id, entry] : service->installations(true))
@@ -175,7 +209,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return out;
   });
 
-  host.expose_as("modio_installed_count", [&ctx]() {
+  expose_on_main(host, ctx, "modio_installed_count", [&ctx]() {
     const Service *const service = service_of(ctx);
     return service == nullptr
               ? 0.0
@@ -187,26 +221,26 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
   // exactly as long as these registered bindings do.
   const auto op = std::make_shared<AsyncOp>();
 
-  host.expose_as("modio_op_busy", [op]() { return op->busy; });
-  host.expose_as("modio_op_error",
+  expose_on_main(host, ctx, "modio_op_busy", [op]() { return op->busy; });
+  expose_on_main(host, ctx, "modio_op_error",
                  [op]() -> nx::string_view { return op->error.view(); });
-  host.expose_as("modio_op_result_id",
+  expose_on_main(host, ctx, "modio_op_result_id",
                  [op]() { return static_cast<f64>(op->numeric); });
-  host.expose_as("modio_op_result_text",
+  expose_on_main(host, ctx, "modio_op_result_text",
                  [op]() -> nx::string_view { return op->text.view(); });
 
   // -- User: account + social (modio_user.h) -----------------------------
 
-  host.expose_as("modio_set_language", [](const f64 locale) {
+  expose_on_main(host, ctx, "modio_set_language", [](const f64 locale) {
     set_language(static_cast<Modio::Language>(static_cast<int>(locale)));
     return true;
   });
 
-  host.expose_as("modio_get_language", []() {
+  expose_on_main(host, ctx, "modio_get_language", []() {
     return static_cast<f64>(static_cast<int>(get_language()));
   });
 
-  host.expose_as("modio_clear_user_data", [&ctx, op]() {
+  expose_on_main(host, ctx, "modio_clear_user_data", [&ctx, op]() {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -215,7 +249,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_refresh_user_data", [&ctx, op]() {
+  expose_on_main(host, ctx, "modio_refresh_user_data", [&ctx, op]() {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -225,7 +259,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_get_user_media", [&ctx, op](const f64 size) {
+  expose_on_main(host, ctx, "modio_get_user_media", [&ctx, op](const f64 size) {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -240,7 +274,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_mute_user", [&ctx, op](const f64 user_id) {
+  expose_on_main(host, ctx, "modio_mute_user", [&ctx, op](const f64 user_id) {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -250,7 +284,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_unmute_user", [&ctx, op](const f64 user_id) {
+  expose_on_main(host, ctx, "modio_unmute_user", [&ctx, op](const f64 user_id) {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -260,7 +294,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_follow_user", [&ctx, op](const f64 user_id) {
+  expose_on_main(host, ctx, "modio_follow_user", [&ctx, op](const f64 user_id) {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -270,27 +304,29 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_unfollow_user", [&ctx, op](const f64 user_id) {
-    Service *const service = service_of(ctx);
-    if (service == nullptr)
-      return false;
-    begin_op(*op);
-    unfollow_user(*service, Modio::UserID(nx::cast<i64>(user_id)),
-                  [op](const Modio::ErrorCode ec) { end_op(*op, ec); });
-    return true;
-  });
+  expose_on_main(
+      host, ctx, "modio_unfollow_user", [&ctx, op](const f64 user_id) {
+        Service *const service = service_of(ctx);
+        if (service == nullptr)
+          return false;
+        begin_op(*op);
+        unfollow_user(*service, Modio::UserID(nx::cast<i64>(user_id)),
+                      [op](const Modio::ErrorCode ec) { end_op(*op, ec); });
+        return true;
+      });
 
   // -- Authoring: creating/publishing mods (modio_authoring.h) -----------
 
-  host.expose_as("modio_new_mod_handle", []() {
+  expose_on_main(host, ctx, "modio_new_mod_handle", []() {
     return static_cast<f64>(
         static_cast<Modio::ModCreationHandle::UnderlyingType>(new_mod_handle()));
   });
 
-  host.expose_as(
-      "modio_submit_new_mod",
+  expose_on_main(
+      host, ctx, "modio_submit_new_mod",
       [&ctx, op](const f64 handle, const nx::string_view name,
-                const nx::string_view summary, const nx::string_view logo_path) {
+                 const nx::string_view summary,
+                 const nx::string_view logo_path) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -311,11 +347,12 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_submit_mod_changes",
+  expose_on_main(
+      host, ctx, "modio_submit_mod_changes",
       [&ctx, op](const f64 mod_id, const nx::string_view name,
-                const nx::string_view summary, const nx::string_view description,
-                const nx::string_view homepage_url) {
+                 const nx::string_view summary,
+                 const nx::string_view description,
+                 const nx::string_view homepage_url) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -337,10 +374,10 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_submit_new_mod_file",
+  expose_on_main(
+      host, ctx, "modio_submit_new_mod_file",
       [&ctx](const f64 mod_id, const nx::string_view root_directory,
-            const nx::string_view version, const nx::string_view changelog) {
+             const nx::string_view version, const nx::string_view changelog) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -354,10 +391,10 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
                                    std::move(params));
       });
 
-  host.expose_as(
-      "modio_submit_new_mod_source_file",
+  expose_on_main(
+      host, ctx, "modio_submit_new_mod_source_file",
       [&ctx](const f64 mod_id, const nx::string_view root_directory,
-            const nx::string_view version, const nx::string_view changelog) {
+             const nx::string_view version, const nx::string_view changelog) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -371,24 +408,26 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
             *service, Modio::ModID(nx::cast<i64>(mod_id)), std::move(params));
       });
 
-  host.expose_as("modio_get_mod_logo", [&ctx, op](const f64 mod_id, const f64 size) {
-    Service *const service = service_of(ctx);
-    if (service == nullptr)
-      return false;
-    begin_op(*op);
-    get_mod_logo(*service, Modio::ModID(nx::cast<i64>(mod_id)),
-                static_cast<Modio::LogoSize>(static_cast<int>(size)),
-                [op](const Modio::ErrorCode ec,
-                     const Modio::Optional<std::string> path) {
-                  end_op(*op, ec);
-                  if (path.has_value())
-                    op->text = nx::string(*path);
-                });
-    return true;
-  });
+  expose_on_main(host, ctx, "modio_get_mod_logo",
+                 [&ctx, op](const f64 mod_id, const f64 size) {
+                   Service *const service = service_of(ctx);
+                   if (service == nullptr)
+                     return false;
+                   begin_op(*op);
+                   get_mod_logo(
+                       *service, Modio::ModID(nx::cast<i64>(mod_id)),
+                       static_cast<Modio::LogoSize>(static_cast<int>(size)),
+                       [op](const Modio::ErrorCode ec,
+                            const Modio::Optional<std::string> path) {
+                         end_op(*op, ec);
+                         if (path.has_value())
+                           op->text = nx::string(*path);
+                       });
+                   return true;
+                 });
 
-  host.expose_as(
-      "modio_get_mod_gallery_image",
+  expose_on_main(
+      host, ctx, "modio_get_mod_gallery_image",
       [&ctx, op](const f64 mod_id, const f64 size, const f64 index) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
@@ -407,8 +446,9 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_get_mod_creator_avatar", [&ctx, op](const f64 mod_id, const f64 size) {
+  expose_on_main(
+      host, ctx, "modio_get_mod_creator_avatar",
+      [&ctx, op](const f64 mod_id, const f64 size) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -425,8 +465,8 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_add_or_update_mod_logo",
+  expose_on_main(
+      host, ctx, "modio_add_or_update_mod_logo",
       [&ctx, op](const f64 mod_id, const nx::string_view logo_path) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
@@ -438,8 +478,9 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_submit_mod_rating", [&ctx, op](const f64 mod_id, const f64 rating) {
+  expose_on_main(
+      host, ctx, "modio_submit_mod_rating",
+      [&ctx, op](const f64 mod_id, const f64 rating) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -450,8 +491,8 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_add_mod_dependency",
+  expose_on_main(
+      host, ctx, "modio_add_mod_dependency",
       [&ctx, op](const f64 mod_id, const f64 dependency_id) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
@@ -464,8 +505,8 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_delete_mod_dependency",
+  expose_on_main(
+      host, ctx, "modio_delete_mod_dependency",
       [&ctx, op](const f64 mod_id, const f64 dependency_id) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
@@ -478,7 +519,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as("modio_archive_mod", [&ctx, op](const f64 mod_id) {
+  expose_on_main(host, ctx, "modio_archive_mod", [&ctx, op](const f64 mod_id) {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -488,13 +529,14 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_has_validation_error",
+  expose_on_main(host, ctx, "modio_has_validation_error",
                  []() { return !last_validation_error().empty(); });
 
   // -- Monetization (modio_monetization.h) --------------------------------
 
-  host.expose_as(
-      "modio_purchase_mod", [&ctx, op](const f64 mod_id, const f64 expected_price) {
+  expose_on_main(
+      host, ctx, "modio_purchase_mod",
+      [&ctx, op](const f64 mod_id, const f64 expected_price) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -513,7 +555,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as("modio_fetch_wallet_balance", [&ctx, op]() {
+  expose_on_main(host, ctx, "modio_fetch_wallet_balance", [&ctx, op]() {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -528,7 +570,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_fetch_user_purchases", [&ctx, op]() {
+  expose_on_main(host, ctx, "modio_fetch_user_purchases", [&ctx, op]() {
     Service *const service = service_of(ctx);
     if (service == nullptr)
       return false;
@@ -538,7 +580,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return true;
   });
 
-  host.expose_as("modio_purchased_mods", [&ctx] {
+  expose_on_main(host, ctx, "modio_purchased_mods", [&ctx] {
     nx::vector<ModRecord> out;
     if (const Service *const service = service_of(ctx))
       for (const auto &[id, info] : query_user_purchased_mods(*service))
@@ -546,7 +588,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return out;
   });
 
-  host.expose_as("modio_purchased_mods_count", [&ctx]() {
+  expose_on_main(host, ctx, "modio_purchased_mods_count", [&ctx]() {
     const Service *const service = service_of(ctx);
     return service == nullptr
               ? 0.0
@@ -555,23 +597,27 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
 
   // -- Advanced: progress/storage queries (modio_advanced.h) --------------
 
-  host.expose_as("modio_force_uninstall_mod", [&ctx, op](const f64 mod_id) {
-    Service *const service = service_of(ctx);
-    if (service == nullptr)
-      return false;
-    begin_op(*op);
-    force_uninstall_mod(*service, Modio::ModID(nx::cast<i64>(mod_id)),
-                        [op](const Modio::ErrorCode ec) { end_op(*op, ec); });
-    return true;
-  });
+  expose_on_main(host, ctx, "modio_force_uninstall_mod",
+                 [&ctx, op](const f64 mod_id) {
+                   Service *const service = service_of(ctx);
+                   if (service == nullptr)
+                     return false;
+                   begin_op(*op);
+                   force_uninstall_mod(
+                       *service, Modio::ModID(nx::cast<i64>(mod_id)),
+                       [op](const Modio::ErrorCode ec) { end_op(*op, ec); });
+                   return true;
+                 });
 
-  host.expose_as("modio_prioritize_transfer_for_mod", [&ctx](const f64 mod_id) {
-    Service *const service = service_of(ctx);
-    return service != nullptr &&
-          !prioritize_transfer_for_mod(*service, Modio::ModID(nx::cast<i64>(mod_id)));
-  });
+  expose_on_main(host, ctx, "modio_prioritize_transfer_for_mod",
+                 [&ctx](const f64 mod_id) {
+                   Service *const service = service_of(ctx);
+                   return service != nullptr &&
+                          !prioritize_transfer_for_mod(
+                              *service, Modio::ModID(nx::cast<i64>(mod_id)));
+                 });
 
-  host.expose_as("modio_current_update_mod_id", [&ctx]() {
+  expose_on_main(host, ctx, "modio_current_update_mod_id", [&ctx]() {
     const Service *const service = service_of(ctx);
     if (service == nullptr)
       return 0.0;
@@ -582,7 +628,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
               : 0.0;
   });
 
-  host.expose_as("modio_current_update_state", [&ctx]() {
+  expose_on_main(host, ctx, "modio_current_update_state", [&ctx]() {
     const Service *const service = service_of(ctx);
     if (service == nullptr)
       return -1.0;
@@ -593,7 +639,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
               : -1.0;
   });
 
-  host.expose_as("modio_current_update_progress", [&ctx]() {
+  expose_on_main(host, ctx, "modio_current_update_progress", [&ctx]() {
     const Service *const service = service_of(ctx);
     if (service == nullptr)
       return 0.0;
@@ -613,7 +659,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
     return current / total;
   });
 
-  host.expose_as("modio_storage_consumed_bytes", [&ctx]() {
+  expose_on_main(host, ctx, "modio_storage_consumed_bytes", [&ctx]() {
     const Service *const service = service_of(ctx);
     if (service == nullptr)
       return 0.0;
@@ -624,7 +670,7 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         info->GetSpace(Modio::StorageLocation::Local, Modio::StorageUsage::Consumed)));
   });
 
-  host.expose_as("modio_default_install_directory",
+  expose_on_main(host, ctx, "modio_default_install_directory",
                  [op](const f64 game_id) -> nx::string_view {
                    op->text = nx::string(default_mod_installation_directory(
                        Modio::GameID(nx::cast<i64>(game_id))));
@@ -633,20 +679,25 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
 
   // -- Collections: curated mod bundles (modio_collections.h) -------------
 
-  host.expose_as("modio_get_mod_collection_info", [&ctx, op](const f64 collection_id) {
-    Service *const service = service_of(ctx);
-    if (service == nullptr)
-      return false;
-    begin_op(*op);
-    get_mod_collection_info(
-        *service, Modio::ModCollectionID(nx::cast<i64>(collection_id)),
-        [op](const Modio::ErrorCode ec,
-             const Modio::Optional<Modio::ModCollectionInfo>) { end_op(*op, ec); });
-    return true;
-  });
+  expose_on_main(host, ctx, "modio_get_mod_collection_info",
+                 [&ctx, op](const f64 collection_id) {
+                   Service *const service = service_of(ctx);
+                   if (service == nullptr)
+                     return false;
+                   begin_op(*op);
+                   get_mod_collection_info(
+                       *service,
+                       Modio::ModCollectionID(nx::cast<i64>(collection_id)),
+                       [op](const Modio::ErrorCode ec,
+                            const Modio::Optional<Modio::ModCollectionInfo>) {
+                         end_op(*op, ec);
+                       });
+                   return true;
+                 });
 
-  host.expose_as(
-      "modio_subscribe_to_mod_collection", [&ctx, op](const f64 collection_id) {
+  expose_on_main(
+      host, ctx, "modio_subscribe_to_mod_collection",
+      [&ctx, op](const f64 collection_id) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -657,8 +708,9 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_unsubscribe_from_mod_collection", [&ctx, op](const f64 collection_id) {
+  expose_on_main(
+      host, ctx, "modio_unsubscribe_from_mod_collection",
+      [&ctx, op](const f64 collection_id) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -669,20 +721,25 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as("modio_follow_mod_collection", [&ctx, op](const f64 collection_id) {
-    Service *const service = service_of(ctx);
-    if (service == nullptr)
-      return false;
-    begin_op(*op);
-    follow_mod_collection(
-        *service, Modio::ModCollectionID(nx::cast<i64>(collection_id)),
-        [op](const Modio::ErrorCode ec,
-             const Modio::Optional<Modio::ModCollectionInfo>) { end_op(*op, ec); });
-    return true;
-  });
+  expose_on_main(host, ctx, "modio_follow_mod_collection",
+                 [&ctx, op](const f64 collection_id) {
+                   Service *const service = service_of(ctx);
+                   if (service == nullptr)
+                     return false;
+                   begin_op(*op);
+                   follow_mod_collection(
+                       *service,
+                       Modio::ModCollectionID(nx::cast<i64>(collection_id)),
+                       [op](const Modio::ErrorCode ec,
+                            const Modio::Optional<Modio::ModCollectionInfo>) {
+                         end_op(*op, ec);
+                       });
+                   return true;
+                 });
 
-  host.expose_as(
-      "modio_unfollow_mod_collection", [&ctx, op](const f64 collection_id) {
+  expose_on_main(
+      host, ctx, "modio_unfollow_mod_collection",
+      [&ctx, op](const f64 collection_id) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
           return false;
@@ -693,8 +750,8 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_submit_mod_collection_rating",
+  expose_on_main(
+      host, ctx, "modio_submit_mod_collection_rating",
       [&ctx, op](const f64 collection_id, const f64 rating) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
@@ -707,8 +764,8 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_get_mod_collection_logo",
+  expose_on_main(
+      host, ctx, "modio_get_mod_collection_logo",
       [&ctx, op](const f64 collection_id, const f64 size) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
@@ -726,8 +783,8 @@ void expose_modio_services(nxe::script::Host &host, nxe::ModuleContext &ctx) {
         return true;
       });
 
-  host.expose_as(
-      "modio_get_mod_collection_creator_avatar",
+  expose_on_main(
+      host, ctx, "modio_get_mod_collection_creator_avatar",
       [&ctx, op](const f64 collection_id, const f64 size) {
         Service *const service = service_of(ctx);
         if (service == nullptr)
