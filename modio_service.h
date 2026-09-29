@@ -8,6 +8,7 @@
 #include <chrono>
 #include <functional>
 #include <map>
+#include <span>
 
 namespace nxm::modio {
 
@@ -139,11 +140,14 @@ public:
   void fetch_external_updates(std::function<void(Modio::ErrorCode)> on_done = {});
 
   /// name_contains empty means "no name filter". Results are paginated;
-  /// start_index/count follow Modio::FilterParams::IndexedResults.
+  /// start_index/count follow Modio::FilterParams::IndexedResults. A mod
+  /// listed has every tag in @p with_tags and none in @p without_tags.
   void search_mods(
       nx::string_view name_contains, usize start_index, usize count,
       std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfoList>)>
-          on_done);
+          on_done,
+      std::span<const nx::string> with_tags = {},
+      std::span<const nx::string> without_tags = {});
   void get_mod_info(
       Modio::ModID id,
       std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfo>)>

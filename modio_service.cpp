@@ -5,6 +5,9 @@
 #include "core/foundation/diagnostics/log.h"
 #include "core/foundation/diagnostics/profiler.h"
 
+#include <string>
+#include <vector>
+
 #if defined(__ANDROID__)
 #include "modio/modio_android.h"
 #endif
@@ -285,7 +288,9 @@ void Service::search_mods(
     const nx::string_view name_contains, const usize start_index,
     const usize count,
     std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfoList>)>
-        on_done) {
+        on_done,
+    const std::span<const nx::string> with_tags,
+    const std::span<const nx::string> without_tags) {
   if (!ready()) {
     on_done(not_ready_error(), {});
     return;
@@ -294,6 +299,17 @@ void Service::search_mods(
   filter.IndexedResults(start_index, count);
   if (!name_contains.empty())
     filter.NameContains(std::string(name_contains));
+  const auto tags = [](const std::span<const nx::string> from) {
+    std::vector<std::string> out;
+    out.reserve(from.size());
+    for (const nx::string &tag : from)
+      out.emplace_back(tag.data(), tag.size());
+    return out;
+  };
+  if (!with_tags.empty())
+    filter.WithTags(tags(with_tags));
+  if (!without_tags.empty())
+    filter.WithoutTags(tags(without_tags));
   Modio::ListAllModsAsync(filter, track(std::move(on_done)));
 }
 
