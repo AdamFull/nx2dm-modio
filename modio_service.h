@@ -34,6 +34,15 @@ inline constexpr std::chrono::milliseconds IDLE_PUMP_INTERVAL{500};
 pump_due(Phase phase, bool work_in_flight,
          std::chrono::steady_clock::duration since_pump) noexcept;
 
+/// How Service::search_mods orders what it finds; mod.io's own order, by
+/// id, when left as it is.
+struct SearchOrder {
+  Modio::FilterParams::SortFieldType field =
+      Modio::FilterParams::SortFieldType::ID;
+  Modio::FilterParams::SortDirection direction =
+      Modio::FilterParams::SortDirection::Ascending;
+};
+
 namespace detail {
 
 /// One SDK operation whose callback has not run yet.
@@ -147,7 +156,7 @@ public:
       std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfoList>)>
           on_done,
       std::span<const nx::string> with_tags = {},
-      std::span<const nx::string> without_tags = {});
+      std::span<const nx::string> without_tags = {}, SearchOrder order = {});
   void get_mod_info(
       Modio::ModID id,
       std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfo>)>

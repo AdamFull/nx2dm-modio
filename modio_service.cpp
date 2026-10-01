@@ -290,13 +290,14 @@ void Service::search_mods(
     std::function<void(Modio::ErrorCode, Modio::Optional<Modio::ModInfoList>)>
         on_done,
     const std::span<const nx::string> with_tags,
-    const std::span<const nx::string> without_tags) {
+    const std::span<const nx::string> without_tags, const SearchOrder order) {
   if (!ready()) {
     on_done(not_ready_error(), {});
     return;
   }
   Modio::FilterParams filter;
   filter.IndexedResults(start_index, count);
+  filter.SortBy(order.field, order.direction);
   if (!name_contains.empty())
     filter.NameContains(std::string(name_contains));
   const auto tags = [](const std::span<const nx::string> from) {
