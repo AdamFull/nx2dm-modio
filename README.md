@@ -20,10 +20,10 @@ run-tested on Windows so far - see "Platform status" below.
 ## Configuration
 
 A project supplies its mod.io game ID and API key through an INI file at VFS
-path `/config/modio.ini` (author it at `assets/config/modio.ini` - it's an
-unrecognized-by-the-cooker extension, so it passes through the asset pipeline
-byte-for-byte, no `.meta` needed, except on a Shipping build which would need
-a real cook rule registered first):
+path `/config/modio.ini` (author it at `assets/config/modio.ini`; the cooker
+validates it and publishes `modio.ini.nxb`, which `nx::ini::load` reads in
+place of the text, and a Shipping build reads nothing else; no `.meta`
+needed):
 
 ```ini
 [modio]

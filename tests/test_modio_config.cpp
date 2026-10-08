@@ -2,6 +2,7 @@
 
 #include "modio/modio_config.h"
 
+#include "core/foundation/serialization/ini.h"
 #include "core/foundation/vfs/vfs.h"
 
 namespace {
@@ -54,6 +55,29 @@ session_id = my-game
   CHECK(config->api_key.view() == "ca842a1f60c40bc8fb2044bc9932d763");
   CHECK(config->test_environment);
   CHECK(config->session_id.view() == "my-game");
+
+  nx::vfs::unmount(mount);
+}
+
+TEST_CASE("modio config: a cooked file is read as its source would be") {
+  const VfsScope scope;
+  REQUIRE(scope.initialized);
+  nx::vfs::MemoryDevice *const memory = nx::vfs::make_memory_device();
+  REQUIRE(memory != nullptr);
+  const auto cooked =
+      nx::ini::parse("[modio]\ngame_id = 3609\n"
+                     "api_key = ca842a1f60c40bc8fb2044bc9932d763\n");
+  REQUIRE(cooked);
+  const nx::vector<u8> bytes = nx::ini::encode(*cooked);
+  memory->add("/config/modio.ini.nxb",
+              nx::blob<u8>({bytes.data(), bytes.size()}));
+  const nx::vfs::MountId mount = nx::vfs::mount("/", memory);
+
+  const Modio::Optional<nxm::modio::ServiceConfig> config =
+      load_project_config();
+  REQUIRE(config.has_value());
+  CHECK(config->game_id == 3609);
+  CHECK(config->api_key.view() == "ca842a1f60c40bc8fb2044bc9932d763");
 
   nx::vfs::unmount(mount);
 }
