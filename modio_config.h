@@ -2,6 +2,10 @@
 
 #include "modio/modio_service.h"
 
+namespace nx::vfs {
+class AsyncIoService;
+}
+
 namespace nxm::modio {
 
 /// VFS path ModioModule::on_attach() checks automatically. A project enables
@@ -28,6 +32,6 @@ inline constexpr nx::string_view kDefaultConfigPath = "/config/modio.ini";
 /// or is missing a required field - callers should treat both the same way,
 /// as "nothing to auto-configure with".
 [[nodiscard]] Modio::Optional<ServiceConfig>
-load_project_config(nx::string_view path = kDefaultConfigPath);
-
+load_project_config(nx::vfs::AsyncIoService &io,
+                    nx::string_view path = kDefaultConfigPath);
 }

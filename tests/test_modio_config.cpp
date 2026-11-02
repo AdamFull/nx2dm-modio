@@ -3,9 +3,18 @@
 #include "modio/modio_config.h"
 
 #include "core/foundation/serialization/ini.h"
+#include "core/foundation/threading/thread_pool.h"
+#include "core/foundation/vfs/async_io.h"
 #include "core/foundation/vfs/vfs.h"
 
 namespace {
+
+nx::vfs::AsyncIoService &test_io() {
+  static nx::thread_pool pool(
+      {.thread_count = 1, .name = "nx-test-io", .blocking_threads = 1});
+  static nx::vfs::AsyncIoService io(pool);
+  return io;
+}
 
 using nxm::modio::load_project_config;
 
@@ -29,7 +38,7 @@ TEST_CASE("modio config: no file present is not an error") {
   REQUIRE(memory != nullptr);
   const nx::vfs::MountId mount = nx::vfs::mount("/", memory);
 
-  CHECK_FALSE(load_project_config().has_value());
+  CHECK_FALSE(load_project_config(test_io()).has_value());
 
   nx::vfs::unmount(mount);
 }
@@ -49,7 +58,7 @@ session_id = my-game
   const nx::vfs::MountId mount = nx::vfs::mount("/", memory);
 
   const Modio::Optional<nxm::modio::ServiceConfig> config =
-      load_project_config();
+      load_project_config(test_io());
   REQUIRE(config.has_value());
   CHECK(config->game_id == 3609);
   CHECK(config->api_key.view() == "ca842a1f60c40bc8fb2044bc9932d763");
@@ -74,7 +83,7 @@ TEST_CASE("modio config: a cooked file is read as its source would be") {
   const nx::vfs::MountId mount = nx::vfs::mount("/", memory);
 
   const Modio::Optional<nxm::modio::ServiceConfig> config =
-      load_project_config();
+      load_project_config(test_io());
   REQUIRE(config.has_value());
   CHECK(config->game_id == 3609);
   CHECK(config->api_key.view() == "ca842a1f60c40bc8fb2044bc9932d763");
@@ -96,7 +105,7 @@ api_key = some-key
   const nx::vfs::MountId mount = nx::vfs::mount("/", memory);
 
   const Modio::Optional<nxm::modio::ServiceConfig> config =
-      load_project_config();
+      load_project_config(test_io());
   REQUIRE(config.has_value());
   CHECK(config->game_id == 42);
   CHECK(config->api_key.view() == "some-key");
@@ -114,7 +123,7 @@ TEST_CASE("modio config: missing game_id or api_key is refused") {
   memory->add("/config/modio.ini", as_bytes("[modio]\napi_key = only-a-key\n"));
   const nx::vfs::MountId mount = nx::vfs::mount("/", memory);
 
-  CHECK_FALSE(load_project_config().has_value());
+  CHECK_FALSE(load_project_config(test_io()).has_value());
 
   nx::vfs::unmount(mount);
 }
@@ -128,7 +137,7 @@ TEST_CASE("modio config: a non-numeric game_id is refused") {
              as_bytes("[modio]\ngame_id = not-a-number\napi_key = k\n"));
   const nx::vfs::MountId mount = nx::vfs::mount("/", memory);
 
-  CHECK_FALSE(load_project_config().has_value());
+  CHECK_FALSE(load_project_config(test_io()).has_value());
 
   nx::vfs::unmount(mount);
 }
@@ -141,7 +150,7 @@ TEST_CASE("modio config: malformed ini does not crash") {
   memory->add("/config/modio.ini", as_bytes("this is not [ini at all"));
   const nx::vfs::MountId mount = nx::vfs::mount("/", memory);
 
-  CHECK_FALSE(load_project_config().has_value());
+  CHECK_FALSE(load_project_config(test_io()).has_value());
 
   nx::vfs::unmount(mount);
 }
@@ -155,9 +164,9 @@ TEST_CASE("modio config: an explicit path overrides the default") {
              as_bytes("[modio]\ngame_id = 7\napi_key = k\n"));
   const nx::vfs::MountId mount = nx::vfs::mount("/", memory);
 
-  CHECK_FALSE(load_project_config().has_value());
+  CHECK_FALSE(load_project_config(test_io()).has_value());
   const Modio::Optional<nxm::modio::ServiceConfig> config =
-      load_project_config("/somewhere/else.ini");
+      load_project_config(test_io(), "/somewhere/else.ini");
   REQUIRE(config.has_value());
   CHECK(config->game_id == 7);
 

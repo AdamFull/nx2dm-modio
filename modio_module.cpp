@@ -48,7 +48,8 @@ public:
     }
     ctx.schedule().add(nxe::sys::Stage::Update, PUMP_SYSTEM);
 
-    if (const Modio::Optional<ServiceConfig> config = load_project_config();
+    if (const Modio::Optional<ServiceConfig> config =
+            load_project_config(*ctx.async_io());
         config.has_value()) {
       nx::logi("modio: found {}, auto-configuring", kDefaultConfigPath);
       m_service.initialize(*config);

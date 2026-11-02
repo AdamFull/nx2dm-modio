@@ -1,7 +1,7 @@
 #include "modio/modio_config.h"
 
 #include "core/foundation/diagnostics/log.h"
-#include "core/foundation/serialization/ini.h"
+#include "core/foundation/serialization/async_documents.h"
 
 namespace nxm::modio {
 namespace {
@@ -42,9 +42,10 @@ const nx::log::Category log_modio = nx::log::category("modio");
 
 } // namespace
 
-Modio::Optional<ServiceConfig> load_project_config(const nx::string_view path) {
+Modio::Optional<ServiceConfig> load_project_config(nx::vfs::AsyncIoService &io,
+                                                   const nx::string_view path) {
   // Its cooked form where there is one, as a Shipping build has.
-  const auto parsed = nx::ini::load(path);
+  const auto parsed = nx::ini::load(io, path).get();
   if (!parsed) {
     const nx::ini::LoadError &error = parsed.error();
     if (error.kind == nx::ini::LoadErrorKind::Invalid)
@@ -85,5 +86,4 @@ Modio::Optional<ServiceConfig> load_project_config(const nx::string_view path) {
 
   return config;
 }
-
 }
